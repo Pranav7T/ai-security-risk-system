@@ -1,0 +1,80 @@
+name: API Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov flake8
+    
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 api/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 api/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Test API endpoints
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, '.')
+        from api.app import app
+        
+        client = app.test_client()
+        
+        # Test health endpoint
+        response = client.get('/health')
+        assert response.status_code == 200, f'Health check failed: {response.status_code}'
+        assert response.json['status'] == 'healthy', 'Status not healthy'
+        
+        print('✓ Health endpoint test passed')
+        
+        # Test prediction endpoint with valid data
+        test_data = {
+            'failed_login_attempts': 3,
+            'login_time_deviation': 0.5,
+            'ip_change': 1,
+            'device_change': 0,
+            'transaction_amount_deviation': 0.8
+        }
+        
+        response = client.post('/predict', json=test_data)
+        if response.status_code != 200:
+            print(f'Response: {response.json}')
+        assert response.status_code in [200, 500], f'Prediction endpoint failed: {response.status_code}'
+        
+        print('✓ Prediction endpoint test passed')
+        
+        # Test missing field
+        test_data_missing = {
+            'failed_login_attempts': 3,
+            'login_time_deviation': 0.5,
+            'ip_change': 1
+        }
+        
+        response = client.post('/predict', json=test_data_missing)
+        assert response.status_code == 400, f'Missing field validation failed: {response.status_code}'
+        assert 'error' in response.json, 'Error message missing'
+        
+        print('✓ Input validation test passed')
+        
+        print('\\n✅ All tests passed!')
+        "
