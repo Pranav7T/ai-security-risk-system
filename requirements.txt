@@ -10,4 +10,6 @@ pandas==2.0.3
 python-dotenv==1.0.0
 
 # production WSGI server
-gunicorn==22.1.0
+# 22.1.0 was not available; choose latest compatible release
+# pin to 25.1.0 (works with Python 3.11)
+gunicorn==25.1.0
