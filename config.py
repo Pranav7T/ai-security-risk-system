@@ -28,7 +28,19 @@ class Config:
     
     # Model Settings
     MODEL_PATH = os.getenv('MODEL_PATH', 'model/model.pkl')
+
+    # Database (SQLite for Level 1)
+    DATABASE_PATH = os.getenv('DATABASE_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'app.db'))
     
+    # SQLAlchemy Configuration
+    SQLALCHEMY_DATABASE_URI = os.getenv('SQLALCHEMY_DATABASE_URI', f'sqlite:///{DATABASE_PATH}')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False
+    
+    # MongoDB (for signup/login/dashboard and usage)
+    MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+    MONGODB_DB = os.getenv('MONGODB_DB', 'ai_security')
+
     # Logging Settings
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_FILE = os.getenv('LOG_FILE', 'api.log')

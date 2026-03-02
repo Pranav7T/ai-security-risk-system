@@ -1,0 +1,29 @@
+/* AI Security API - Bootstrap tweaks & custom utilities */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, sans-serif;
+}
+
+.card {
+  border-radius: 12px;
+}
+
+.btn,
+.btn-primary,
+.btn-outline-secondary,
+.btn-outline-light {
+  border-radius: 8px;
+}
+
+.mono {
+  font-family: monospace;
+  word-break: break-all;
+  font-size: 0.85rem;
+  background: #f8f9fa;
+  padding: 0.5rem;
+  border-radius: 4px;
+}

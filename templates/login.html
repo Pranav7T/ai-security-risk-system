@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - AI Security API</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center vh-100">
+  <div class="card shadow p-4" style="width: 400px;">
+    <h3 class="text-center mb-3">AI Security Login</h3>
+    <p class="text-muted text-center mb-4">Enter your email and password to get your API key.</p>
+
+    <form id="login-form">
+      <div class="mb-3">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" id="email" name="email" class="form-control" required placeholder="you@example.com">
+      </div>
+      <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" id="password" name="password" class="form-control" required placeholder="Your password">
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
+
+    <div id="message" class="mt-3" role="alert" style="display:none;"></div>
+
+    <p class="text-center mt-3 mb-0">
+      Don’t have an account? <a href="/signup">Sign Up</a><br>
+      <a href="/home" class="small">Back to Home</a>
+    </p>
+  </div>
+
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const msgEl = document.getElementById('message');
+      msgEl.style.display = 'none';
+      msgEl.className = 'mt-3';
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || !password) {
+        msgEl.textContent = 'Email and password are required.';
+        msgEl.classList.add('alert', 'alert-danger');
+        msgEl.style.display = 'block';
+        return;
+      }
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          localStorage.setItem('api_key', data.api_key);
+          window.location.href = '/dashboard';
+        } else {
+          msgEl.textContent = data.error || 'Login failed.';
+          msgEl.classList.add('alert', 'alert-danger');
+          msgEl.style.display = 'block';
+        }
+      } catch (err) {
+        msgEl.textContent = 'Network error. Try again.';
+        msgEl.classList.add('alert', 'alert-danger');
+        msgEl.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -7,6 +7,14 @@
 http://127.0.0.1:5000
 ```
 
+### Authentication (API Key)
+
+Protected endpoints require an API key in the request header:
+
+- **Header name:** `x-api-key`
+- **How to get a key:** Register at `POST /register` or login at `POST /login`; the response includes your `api_key`.
+- **Example:** `x-api-key: 8f3c1e9d0a4b2c...` (64 hex characters)
+
 ---
 
 ## Endpoints
@@ -31,12 +39,80 @@ GET /health
 
 ---
 
-### 2. Risk Prediction Endpoint
+### 2. Register (Create Account & Get API Key)
+
+#### Request
+```
+POST /register
+Content-Type: application/json
+```
+
+#### Request Body
+```json
+{
+  "email": "user@example.com",
+  "password": "your-secure-password"
+}
+```
+
+- **email:** Valid email format, unique.
+- **password:** Minimum 8 characters.
+
+#### Success Response (201 Created)
+```json
+{
+  "message": "Account created successfully",
+  "api_key": "8f3c1e9d0a4b2c...",
+  "email": "user@example.com"
+}
+```
+
+Save the `api_key`; it is shown only once at registration.
+
+#### Error Responses
+- **400** – Missing/invalid email or password, invalid format.
+- **409** – An account with this email already exists.
+
+---
+
+### 3. Login (Get API Key)
+
+#### Request
+```
+POST /login
+Content-Type: application/json
+```
+
+#### Request Body
+```json
+{
+  "email": "user@example.com",
+  "password": "your-password"
+}
+```
+
+#### Success Response (200 OK)
+```json
+{
+  "message": "Login successful",
+  "api_key": "8f3c1e9d0a4b2c...",
+  "email": "user@example.com"
+}
+```
+
+#### Error Responses
+- **400** – Missing email or password.
+- **401** – Invalid email or password.
+
+---
+
+### 4. Risk Prediction Endpoint (Protected)
 
 #### Request
 ```
 POST /predict
 Content-Type: application/json
+x-api-key: <your-api-key>
 ```
 
 #### Request Body Schema
@@ -50,10 +126,11 @@ Content-Type: application/json
 }
 ```
 
-#### Example Request
+#### Example Request (with API key)
 ```bash
 curl -X POST http://127.0.0.1:5000/predict \
   -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY_HERE" \
   -d '{
     "failed_login_attempts": 3,
     "login_time_deviation": 0.5,
@@ -79,6 +156,19 @@ curl -X POST http://127.0.0.1:5000/predict \
 }
 ```
 
+#### Error Response (401 Unauthorized – missing or invalid API key)
+```json
+{
+  "error": "API key required. Send it in the x-api-key header."
+}
+```
+or
+```json
+{
+  "error": "Invalid or expired API key"
+}
+```
+
 ---
 
 ## HTTP Status Codes
@@ -87,8 +177,10 @@ curl -X POST http://127.0.0.1:5000/predict \
 |------|---------|----------|
 | 200 | OK | Success - prediction made or health check passed |
 | 400 | Bad Request | Invalid input (missing fields, wrong types, invalid JSON) |
+| 401 | Unauthorized | Missing or invalid API key (e.g. on `/predict`) |
 | 404 | Not Found | Endpoint does not exist |
 | 405 | Method Not Allowed | Wrong HTTP method for endpoint |
+| 409 | Conflict | Email already registered |
 | 500 | Internal Server Error | Server-side error (model not loaded, etc.) |
 
 ---
@@ -254,12 +346,9 @@ Currently not implemented. To add:
 
 ---
 
-## Authentication (Future Enhancement)
+## Authentication
 
-Currently not implemented. To add:
-- API key validation
-- JWT token support
-- OAuth 2.0 integration
+Implemented: API key in `x-api-key` header. Register at `POST /register` or login at `POST /login` to obtain your key. Passwords are hashed with bcrypt.
 
 ---
 

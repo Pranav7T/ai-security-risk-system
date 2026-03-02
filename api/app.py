@@ -1,22 +1,31 @@
 """
 AI Security Risk Prediction API
-Production-ready Flask application for security risk assessment
+Production-ready Flask application for security risk assessment.
+Modular architecture with separate routes, models, and extensions.
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from datetime import datetime
 import joblib
-import numpy as np
-import json
 import os
+import sys
 import logging
+
+# Add parent directory to path for imports
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from config import get_config
+from api.extensions import db, bcrypt, cors
+from api.models import User, APIUsageLog
+from api.auth_routes import auth_bp
+from api.predict_routes import predict_bp, set_model
+from api.web_routes import web_bp
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-
-app = Flask(__name__)
-app.config['JSON_SORT_KEYS'] = False
 
 # Configure logging
 logging.basicConfig(
@@ -25,31 +34,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Define required feature fields for predictions
-REQUIRED_FIELDS = [
-    "failed_login_attempts",
-    "login_time_deviation",
-    "ip_change",
-    "device_change",
-    "transaction_amount_deviation"
-]
+# Create Flask app (templates and static at project root)
+template_dir = os.path.join(BASE_DIR, "templates")
+static_dir = os.path.join(BASE_DIR, "static")
+app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+
+# Load configuration
+config_class = get_config()
+app.config.from_object(config_class)
+
+# Initialize extensions
+db.init_app(app)
+bcrypt.init_app(app)
+cors.init_app(app)
+
+# Register blueprints
+app.register_blueprint(auth_bp)
+app.register_blueprint(predict_bp)
+app.register_blueprint(web_bp)
 
 # ============================================================================
 # MODEL LOADING
 # ============================================================================
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 model_path = os.path.join(BASE_DIR, "model", "model.pkl")
 
+ml_model = None
 try:
-    model = joblib.load(model_path)
+    ml_model = joblib.load(model_path)
     logger.info(f"Model loaded successfully from {model_path}")
+    # Set model in predict_routes module
+    set_model(ml_model)
 except FileNotFoundError:
     logger.error(f"Model file not found at {model_path}")
-    model = None
 except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
-    model = None
+
+
+# ============================================================================
+# DATABASE INITIALIZATION
+# ============================================================================
+
+def init_db():
+    """Initialize database tables"""
+    with app.app_context():
+        db.create_all()
+        logger.info("Database tables initialized")
 
 
 # ============================================================================
@@ -66,131 +96,15 @@ def handle_content_type():
 
 @app.after_request
 def set_response_headers(response):
-    """Set response headers for all responses"""
-    response.headers['Content-Type'] = 'application/json'
+    """Set JSON content type only for API responses (not for HTML pages)"""
+    if response.content_type == "text/html; charset=utf-8" or response.content_type.startswith("text/html"):
+        return response
+    if response.content_type == "application/octet-stream":
+        return response
+    # Default API responses to JSON when not already set
+    if "application/json" not in (response.content_type or ""):
+        response.headers["Content-Type"] = "application/json"
     return response
-
-
-# ============================================================================
-# VALIDATION FUNCTIONS
-# ============================================================================
-
-def validate_request_body():
-    """
-    Validate that request has a body.
-    
-    Returns:
-        tuple: (data_dict or None, error_message or None, status_code or None)
-    """
-    if not request.data:
-        return None, "Request body is missing", 400
-    
-    return True, None, None
-
-
-def validate_json_format():
-    """
-    Validate that request body is valid JSON.
-    
-    Returns:
-        tuple: (data_dict or None, error_message or None, status_code or None)
-    """
-    try:
-        if request.is_json:
-            data = request.json
-        else:
-            data = json.loads(request.data.decode('utf-8'))
-        
-        if not isinstance(data, dict):
-            return None, "JSON body must be an object/dictionary", 400
-        
-        return data, None, None
-    
-    except json.JSONDecodeError as e:
-        return None, "Invalid JSON format in request body", 400
-    except Exception as e:
-        return None, "Error parsing request body", 400
-
-
-def validate_required_fields(data):
-    """
-    Validate that all required fields are present in the data.
-    
-    Args:
-        data (dict): Request data dictionary
-    
-    Returns:
-        tuple: (True or False, error_message or None, status_code or None)
-    """
-    if not data:
-        return False, "Request data is empty", 400
-    
-    # Check for missing fields
-    missing_fields = [field for field in REQUIRED_FIELDS if field not in data]
-    if missing_fields:
-        if len(missing_fields) == 1:
-            return False, f"Missing required field: {missing_fields[0]}", 400
-        else:
-            return False, f"Missing required fields: {', '.join(missing_fields)}", 400
-    
-    return True, None, None
-
-
-def validate_field_types(data):
-    """
-    Validate that all fields have numeric values.
-    
-    Args:
-        data (dict): Request data dictionary
-    
-    Returns:
-        tuple: (True or False, error_message or None, status_code or None)
-    """
-    for field in REQUIRED_FIELDS:
-        value = data.get(field)
-        
-        # Check if value is numeric (int or float)
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
-            return False, f"Field '{field}' must be numeric (received: {type(value).__name__})", 400
-    
-    return True, None, None
-
-
-def validate_prediction_input(data):
-    """
-    Comprehensive validation of prediction input.
-    
-    Args:
-        data (dict): Request data dictionary
-    
-    Returns:
-        tuple: (features_array or None, error_message or None, status_code or None)
-    """
-    # Validate required fields presence
-    is_valid, error_msg, status = validate_required_fields(data)
-    if not is_valid:
-        return None, error_msg, status
-    
-    # Validate field types
-    is_valid, error_msg, status = validate_field_types(data)
-    if not is_valid:
-        return None, error_msg, status
-    
-    # Extract and convert to numpy array
-    try:
-        features = [
-            data["failed_login_attempts"],
-            data["login_time_deviation"],
-            data["ip_change"],
-            data["device_change"],
-            data["transaction_amount_deviation"]
-        ]
-        features_array = np.array([features])
-        return features_array, None, None
-    
-    except Exception as e:
-        logger.error(f"Error preparing features: {str(e)}")
-        return None, "Error processing input features", 500
 
 
 # ============================================================================
@@ -207,11 +121,11 @@ def health_check():
         Status: 200 OK
     """
     return jsonify({
-        "message": "AI Security Risk API is running",
+        "message": "AI Security API running",
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "model_loaded": model is not None,
-        "version": "1.0.0"
+        "model_loaded": ml_model is not None,
+        "version": app.config.get('API_VERSION', '1.0.0')
     }), 200
 
 
@@ -219,66 +133,6 @@ def health_check():
 def health():
     """Alias for health check endpoint"""
     return health_check()
-
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    """
-    Predict security risk based on input features.
-    
-    Expected JSON body:
-    {
-        "failed_login_attempts": float,
-        "login_time_deviation": float,
-        "ip_change": int,
-        "device_change": int,
-        "transaction_amount_deviation": float
-    }
-    
-    Returns:
-        JSON: Prediction result with risk_label, risk_score, and status
-        Status: 200 OK on success, 400 on client error, 500 on server error
-    """
-    
-    try:
-        # Step 1: Validate request body exists
-        is_valid, error_msg, status = validate_request_body()
-        if not is_valid:
-            return jsonify({"error": error_msg}), status
-        
-        # Step 2: Validate JSON format
-        data, error_msg, status = validate_json_format()
-        if data is None:
-            return jsonify({"error": error_msg}), status
-        
-        # Step 3: Validate and prepare input
-        features_array, error_msg, status = validate_prediction_input(data)
-        if features_array is None:
-            return jsonify({"error": error_msg}), status
-        
-        # Step 4: Check model is loaded
-        if model is None:
-            logger.error("Model is not loaded")
-            return jsonify({"error": "Internal server error"}), 500
-        
-        # Step 5: Make prediction
-        prediction = model.predict(features_array)[0]
-        probability = model.predict_proba(features_array)[0][1]
-        
-        # Step 6: Format response
-        response = {
-            "risk_label": int(prediction),
-            "risk_score": round(float(probability) * 100, 2),
-            "status": "High Risk" if prediction == 1 else "Safe"
-        }
-        
-        logger.info(f"Prediction made - Risk Label: {prediction}, Risk Score: {response['risk_score']}%")
-        return jsonify(response), 200
-    
-    except Exception as e:
-        # Log the actual error but don't expose it to client
-        logger.error(f"Unexpected error in /predict endpoint: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
 
 
 # ============================================================================
@@ -310,9 +164,14 @@ def internal_error(error):
 
 if __name__ == "__main__":
     logger.info("Starting AI Security Risk Prediction API")
+    
+    # Initialize database
+    init_db()
+    
+    # Run app
     app.run(
-        debug=True,
-        host='127.0.0.1',
-        port=5000,
-        threaded=True
+        debug=app.config.get('DEBUG', False),
+        host=app.config.get('HOST', '127.0.0.1'),
+        port=app.config.get('PORT', 5000),
+        threaded=app.config.get('THREADED', True)
     )

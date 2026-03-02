@@ -64,6 +64,27 @@ This API uses a trained Machine Learning model to analyze security features and 
 
    The API will start at: `http://127.0.0.1:5000`
 
+6. **Web platform (optional)**  
+   For signup, login, and dashboard you need MongoDB running (e.g. `mongodb://localhost:27017`). Then open:
+   - **Landing:** `http://127.0.0.1:5000/home`
+   - **Sign up:** `http://127.0.0.1:5000/signup`
+   - **Login:** `http://127.0.0.1:5000/login`
+   - **Dashboard:** `http://127.0.0.1:5000/dashboard` (after login; API key stored in browser)
+
+---
+
+## 🌐 Web Platform (Sign Up, Login, Dashboard)
+
+The project includes a simple web UI and MongoDB-backed user flow:
+
+- **Sign up** (`POST /signup`): name, email, password → user stored in MongoDB, API key (UUID) returned.
+- **Login** (`POST /login`): email, password → returns existing API key.
+- **Dashboard** (`GET /dashboard`): shows API key and total request count; includes a test form that calls `POST /predict` with your API key. Usage is stored in MongoDB (`total_requests`).
+
+**MongoDB schema (users collection):** `name`, `email`, `password` (hashed), `api_key`, `total_requests`.
+
+Set `MONGODB_URI` and optionally `MONGODB_DB` in `.env` if not using defaults (`mongodb://localhost:27017/`, `ai_security`).
+
 ---
 
 ## 📡 API Endpoints
@@ -393,13 +414,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-## 📧 Support
-
-For issues, questions, or contributions, please contact:
-- **Email:** your.email@example.com
-- **GitHub Issues:** [Create an issue](https://github.com/yourusername/ai-security-risk-system/issues)
-
----
 
 ## 📚 References
 
