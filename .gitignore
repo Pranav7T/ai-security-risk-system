@@ -12,9 +12,14 @@ __pycache__/
 .Python
 
 # Model files (too large to commit)
+# keep individual trained model under version control so deployment can access it
+# original rule would have ignored any .pkl; leave it but re‑allow model/model.pkl
 model.pkl
 *.pkl
 *.joblib
+
+# allow the serialized model we generate
+!model/model.pkl
 
 # Environment variables
 .env

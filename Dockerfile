@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# create model directory and train model during build if not present
+RUN python model/train_model.py || echo "training script failed"
+
 ENV FLASK_ENV=production \
     FLASK_HOST=0.0.0.0 \
     FLASK_PORT=5000

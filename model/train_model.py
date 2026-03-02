@@ -8,7 +8,11 @@ from sklearn.metrics import accuracy_score
 import joblib
 
 # 1. Load dataset
-data = pd.read_csv("../dataset/security_data.csv")
+# determine dataset location relative to this script
+import os
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+dataset_path = os.path.join(base_dir, "dataset", "security_data.csv")
+data = pd.read_csv(dataset_path)
 
 # 2. Separate features (X) and label (y)
 X = data.drop("risk_label", axis=1)
@@ -33,6 +37,10 @@ accuracy = accuracy_score(y_test, y_pred)
 print("Model Accuracy:", accuracy)
 
 # 8. Save trained model
-joblib.dump(model, "model.pkl")
 
-print("Model saved successfully!")
+# ensure output directory exists
+import os
+output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.pkl")
+joblib.dump(model, output_path)
+
+print(f"Model saved successfully at {output_path}!")
