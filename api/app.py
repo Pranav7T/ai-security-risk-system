@@ -34,10 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create Flask app (templates and static at project root)
-template_dir = os.path.join(BASE_DIR, "templates")
-static_dir = os.path.join(BASE_DIR, "static")
-app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+# Create Flask app; templates and static now live alongside app.py
+# Flask defaults to 'templates' and 'static' directories relative to this file.
+app = Flask(__name__)
 
 # Load configuration
 config_class = get_config()
@@ -168,10 +167,13 @@ if __name__ == "__main__":
     # Initialize database
     init_db()
     
+    # Determine port - prefer explicit PORT env var (used by platforms like Railway)
+    port = int(os.environ.get('PORT', app.config.get('PORT', 5000)))
+
     # Run app
     app.run(
         debug=app.config.get('DEBUG', False),
         host=app.config.get('HOST', '127.0.0.1'),
-        port=app.config.get('PORT', 5000),
+        port=port,
         threaded=app.config.get('THREADED', True)
     )

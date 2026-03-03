@@ -21,4 +21,6 @@ ENV FLASK_ENV=production \
     FLASK_HOST=0.0.0.0 \
     FLASK_PORT=5000
 
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "api.app:app"]
+# use the PORT environment variable provided by hosting platforms (e.g. Railway)
+# fallback to 5000 when not set
+CMD ["sh", "-c", "gunicorn -w 4 -b 0.0.0.0:${PORT:-5000} api.app:app"]
