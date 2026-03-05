@@ -9,10 +9,12 @@ import logging
 from flask import Blueprint, request, jsonify, render_template
 
 from api.extensions import bcrypt
-from api.mongodb import (
-    get_users_collection,
+from api.database_manager import (
+    insert_user,
     find_user_by_email,
     find_user_by_api_key,
+    test_connection,
+    get_backend_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,24 +97,20 @@ def signup():
     api_key = str(uuid.uuid4())
     password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
 
-    try:
-        get_users_collection().insert_one({
-            "name": name,
-            "email": email,
-            "password": password_hash,
-            "api_key": api_key,
-            "total_requests": 0,
-        })
-    except Exception as e:
-        logger.error("MongoDB insert on signup: %s", e)
-        return jsonify({"error": "Internal server error"}), 500
+    # Test MongoDB connection before proceeding
+    if not test_connection():
+        logger.error("MongoDB connection failed during signup")
+        return jsonify({"error": "Database connection failed. Please try again later."}), 500
 
-    logger.info("User signed up: %s", email)
-    return jsonify({
-        "message": "User created successfully",
-        "api_key": api_key,
-        "email": email,
-    }), 200
+    if insert_user(name, email, password_hash, api_key):
+        logger.info("User signed up: %s", email)
+        return jsonify({
+            "message": "User created successfully",
+            "api_key": api_key,
+            "email": email,
+        }), 200
+    else:
+        return jsonify({"error": "Failed to create user. Please try again."}), 500
 
 
 @web_bp.route("/login", methods=["POST"])
@@ -131,6 +129,11 @@ def login():
 
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
+
+    # Test MongoDB connection before proceeding
+    if not test_connection():
+        logger.error("MongoDB connection failed during login")
+        return jsonify({"error": "Database connection failed. Please try again later."}), 500
 
     user = find_user_by_email(email)
     if not user:
@@ -168,4 +171,17 @@ def dashboard_data():
         "email": user.get("email", ""),
         "api_key": user.get("api_key", ""),
         "total_requests": user.get("total_requests", 0),
+    }), 200
+
+
+@web_bp.route("/status", methods=["GET"])
+def status():
+    """
+    GET /status
+    Returns system status including database backend information
+    """
+    return jsonify({
+        "status": "healthy",
+        "database": get_backend_info(),
+        "api_version": "1.0.0"
     }), 200

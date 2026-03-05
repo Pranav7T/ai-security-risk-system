@@ -7,13 +7,32 @@ import os
 import logging
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
+from pymongo.server_api import ServerApi
 
 logger = logging.getLogger(__name__)
 
-# Default MongoDB URI (local)
-DEFAULT_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+# Default MongoDB Atlas URI with credentials provided by user.
+# The password contains an '@' so it must be URL-encoded as '%40'.
+# You can override via the MONGODB_URI environment variable.
+DEFAULT_ATLAS_URI = (
+    "mongodb+srv://sononipranav_db_user:%40Sononi5684@"
+    "cluster0.36nxwba.mongodb.net/?retryWrites=true&w=majority"
+)
+DEFAULT_URI = os.getenv("MONGODB_URI", DEFAULT_ATLAS_URI)
 DB_NAME = os.getenv("MONGODB_DB", "ai_security")
 USERS_COLLECTION_NAME = "users"
+
+def test_connection():
+    """Test MongoDB connection and return status."""
+    try:
+        client = get_client()
+        # Ping the database to test connection
+        client.admin.command('ping')
+        logger.info("MongoDB connection successful")
+        return True
+    except Exception as e:
+        logger.error("MongoDB connection failed: %s", e)
+        return False
 
 _client = None
 _db = None
@@ -21,11 +40,21 @@ _users_collection = None
 
 
 def get_client():
-    """Get or create MongoDB client."""
+    """Get or create MongoDB client.
+
+    Uses ServerApi v1 with strict mode enabled so that the driver
+    behaves in a stable, forward-compatible way (similar to the
+    Node.js example with ServerApiVersion).
+    """
     global _client
     if _client is None:
-        _client = MongoClient(DEFAULT_URI)
-        logger.info("MongoDB client connected")
+        # configure stable API with strict/deprecation options
+        api = ServerApi('1', strict=True, deprecation_errors=True)
+        _client = MongoClient(
+            DEFAULT_URI,
+            server_api=api,
+        )
+        logger.info("MongoDB client connected to %s", DEFAULT_URI)
     return _client
 
 
@@ -95,3 +124,35 @@ def increment_total_requests(api_key):
     except PyMongoError as e:
         logger.error("MongoDB increment_total_requests: %s", e)
         return False
+
+
+def insert_user(name, email, password_hash, api_key):
+    """Insert a new user into the database. Returns True if successful."""
+    try:
+        get_users_collection().insert_one({
+            "name": name,
+            "email": email,
+            "password": password_hash,
+            "api_key": api_key,
+            "total_requests": 0,
+        })
+        return True
+    except PyMongoError as e:
+        logger.error("MongoDB insert_user: %s", e)
+        return False
+
+
+def get_database_backend():
+    """Get the appropriate database backend (MongoDB or SQLite fallback)."""
+    if test_connection():
+        logger.info("Using MongoDB as database backend")
+        return "mongodb"
+    else:
+        logger.warning("MongoDB unavailable, falling back to SQLite")
+        try:
+            from api.sqlite_fallback import init_db
+            init_db()
+            return "sqlite"
+        except ImportError:
+            logger.error("SQLite fallback not available")
+            return "none"

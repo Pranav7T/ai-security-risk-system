@@ -134,6 +134,25 @@ def health():
     return health_check()
 
 
+@app.route("/status", methods=["GET"])
+def status():
+    """Detailed status endpoint including database information"""
+    try:
+        from api.database_manager import get_backend_info
+        db_info = get_backend_info()
+    except ImportError:
+        db_info = {"error": "Database manager not available"}
+    
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "model_loaded": ml_model is not None,
+        "database": db_info,
+        "version": app.config.get('API_VERSION', '1.0.0'),
+        "environment": app.config.get('ENV', 'unknown')
+    }), 200
+
+
 # ============================================================================
 # ERROR HANDLERS
 # ============================================================================

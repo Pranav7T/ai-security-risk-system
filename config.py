@@ -38,7 +38,11 @@ class Config:
     SQLALCHEMY_ECHO = False
     
     # MongoDB (for signup/login/dashboard and usage)
-    MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+    # default uses Atlas connection with encoded password (replace with your own or set via .env)
+    MONGODB_URI = os.getenv(
+        'MONGODB_URI',
+        'mongodb+srv://sononipranav_db_user:%40Sononi5684@cluster0.36nxwba.mongodb.net/?retryWrites=true&w=majority'
+    )
     MONGODB_DB = os.getenv('MONGODB_DB', 'ai_security')
 
     # Logging Settings
