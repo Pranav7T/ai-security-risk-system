@@ -64,6 +64,10 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     LOG_LEVEL = 'INFO'
+    
+    # Static file configuration for Railway
+    STATIC_FOLDER = 'api/static'
+    TEMPLATES_FOLDER = 'api/templates'
 
 
 class TestingConfig(Config):

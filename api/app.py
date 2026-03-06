@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 
 # Create Flask app; templates and static now live alongside app.py
 # Flask defaults to 'templates' and 'static' directories relative to this file.
-app = Flask(__name__)
+app = Flask(__name__, 
+           static_folder='static',
+           template_folder='templates')
 
 # Load configuration
 config_class = get_config()
@@ -151,6 +153,16 @@ def status():
         "version": app.config.get('API_VERSION', '1.0.0'),
         "environment": app.config.get('ENV', 'unknown')
     }), 200
+
+
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    """Serve static files with proper headers"""
+    from flask import send_from_directory
+    response = send_from_directory('static', filename)
+    if filename.endswith('.css'):
+        response.headers['Content-Type'] = 'text/css'
+    return response
 
 
 # ============================================================================
